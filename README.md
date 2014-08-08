@@ -1,7 +1,14 @@
 smartproxy
 ==========
 
-OpenWRT上的自动代理方案
+OpenWRT上的自动代理方案, 基于iptables, ipset, iptables-ipt-geoip实现. 国内ip直连, 其他走代理.
+
+###编译安装
+
+    git clone https://github.com/zqlee/smartproxy.git packages/smartproxy
+    make menuconfig #选择Network > smartproxy
+    #上传ipk到路由器
+    opkg install <path/to/ipk>
 
 ###配置
 
