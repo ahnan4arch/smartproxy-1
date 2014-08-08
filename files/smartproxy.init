@@ -1,0 +1,84 @@
+#!/bin/sh /etc/rc.common
+
+START=95
+SERVICE_USE_PID=1
+SERVICE_WRITE_PID=1
+SERVICE_DAEMONIZE=1
+
+REDIR_PORT='12345'
+CONFIGFILE='/etc/smartproxy/shadowsocks.json'
+SERVER=$(sed -n 's/.*"server":.*"\(.*\)".*/\1/p' $CONFIGFILE)
+IGNORE_SRC='/etc/smartproxy/ignore-src'
+IGNORE_DST='/etc/smartproxy/ignore-dst'
+
+BYPASS='''
+0.0.0.0/8
+10.0.0.0/8
+127.0.0.0/8
+169.254.0.0/16
+172.16.0.0/12
+192.168.0.0/16
+224.0.0.0/4
+240.0.0.0/4
+'''
+
+start_proxy(){
+	echo 'Start ss-redir'
+	service_start /usr/bin/ss-redir -c $CONFIGFILE -l $REDIR_PORT 
+}
+
+stop_proxy(){
+	echo 'Stop ss-redir'
+	service_stop /usr/bin/ss-redir
+}
+
+add_rule(){
+	echo 'Add iptables rules'
+	iptables -t nat -N smartproxy
+	iptables -t nat -A smartproxy -p tcp -d $SERVER -j RETURN
+
+	#ignore local net
+	for net in $BYPASS
+	do
+		iptables -t nat -A smartproxy -p tcp -d $net -j RETURN
+	done
+
+	ipset create sp-ignore-src hash:net
+	awk '{printf("add sp-ignore-src %s\n", $1)}' $IGNORE_SRC | ipset restore
+
+	ipset create sp-ignore-dst hash:net
+	awk '{printf("add sp-ignore-dst %s\n", $1)}' $IGNORE_DST | ipset restore
+
+	iptables -t nat -A smartproxy -p tcp -m set --match-set sp-ignore-src src -j RETURN
+	iptables -t nat -A smartproxy -p tcp -m set --match-set sp-ignore-dst dst -j RETURN
+
+	iptables -t nat -A smartproxy -p tcp -m geoip ! --dst-cc CN -j REDIRECT --to-port $REDIR_PORT
+
+	iptables -t nat -A prerouting_rule -p tcp -j smartproxy
+	iptables -t nat -A OUTPUT -p tcp -j smartproxy
+}
+
+destroy_rule(){
+	echo 'Destory rules'
+	iptables -t nat -D prerouting_rule -p tcp -j smartproxy 
+	iptables -t nat -D OUTPUT -p tcp -j smartproxy
+	iptables -t nat -F smartproxy
+	iptables -t nat -X smartproxy
+	ipset destroy sp-ignore-src
+	ipset destroy sp-ignore-dst
+}
+
+start() {
+	start_proxy
+	add_rule
+}
+
+stop () {
+	stop_proxy
+	destroy_rule
+}
+
+restart() {
+	stop
+	start
+}
