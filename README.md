@@ -1,19 +1,22 @@
 smartproxy
 ==========
 
-OpenWRT上的自动代理方案, 基于iptables, ipset, iptables-ipt-geoip实现. 国内ip直连, 其他走代理.
+OpenWRT上的自动代理方案, 基于shadowsocks-libev, iptables, ipset, iptables-ipt-geoip实现. 国内ip直连, 其他走代理.
 
 ###编译安装
 
     git clone https://github.com/zqlee/smartproxy.git packages/smartproxy
+    git clone https://github.com/madeye/shadowsocks-libev.git packages/shadowsocks-libev
     make menuconfig #选择Network > smartproxy
+    make packages/smartproxy/compile
     #上传ipk到路由器
     opkg install <path/to/ipk>
 
 ###配置
 
-+ 修改`/etc/smartproxy/shadowsocks.json`为您的shadowsocks帐号
-+ 运行`/etc/init.d/smartproxy restart`重新启动服务
+修改`/etc/smartproxy/shadowsocks.json`为您的shadowsocks帐号
+
+运行`/etc/init.d/smartproxy restart`重新启动服务
 
 ####白名单
 
