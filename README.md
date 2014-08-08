@@ -5,14 +5,20 @@ OpenWRT上的自动代理方案, 基于shadowsocks-libev, iptables, ipset, iptab
 
 ###编译安装
 
+
     git clone https://github.com/zqlee/smartproxy.git packages/smartproxy
     git clone https://github.com/madeye/shadowsocks-libev.git packages/shadowsocks-libev
     make menuconfig #选择Network > smartproxy
     make packages/smartproxy/compile
     #上传ipk到路由器
     opkg install <path/to/ipk>
+    
+或者
+
+[下载](https://github.com/zqlee/smartproxy/releases)预编译版本(只有ramips_24kec的)
 
 ###配置
+
 
 修改`/etc/smartproxy/shadowsocks.json`为您的shadowsocks帐号
 
