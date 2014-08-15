@@ -10,17 +10,7 @@ CONFIGFILE='/etc/smartproxy/shadowsocks.json'
 SERVER=$(sed -n 's/.*"server":.*"\(.*\)".*/\1/p' $CONFIGFILE)
 IGNORE_SRC='/etc/smartproxy/ignore-src'
 IGNORE_DST='/etc/smartproxy/ignore-dst'
-
-BYPASS='''
-0.0.0.0/8
-10.0.0.0/8
-127.0.0.0/8
-169.254.0.0/16
-172.16.0.0/12
-192.168.0.0/16
-224.0.0.0/4
-240.0.0.0/4
-'''
+BADIPLIST='/etc/smartproxy/badip'
 
 start_proxy(){
 	echo 'Start ss-redir'
@@ -34,14 +24,32 @@ stop_proxy(){
 
 add_rule(){
 	echo 'Add iptables rules'
+
+	iptables -t mangle -N cleardns
+	for i in $(awk -F. '''BEGIN{ c=1}{ 
+           if (c != 1) { printf "," }
+           c += 1
+           printf "0x%0.2X%0.2X%0.2X%0.2X", $1,$2,$3,$4
+           if (FNR % 10 == 0) { printf "\n"; c=1 }}''' $BADIPLIST); do
+
+    	iptables -t mangle -A cleardns -m u32 --u32 "0&0x0F000000=0x05000000 && 22&0xFFFF@16=$i" -j DROP
+	done
+	iptables -t mangle -I PREROUTING -p udp --sport 53 -j cleardns
+	iptables -t mangle -I INPUT -p udp --sport 53 -j cleardns
+
+
 	iptables -t nat -N smartproxy
 	iptables -t nat -A smartproxy -p tcp -d $SERVER -j RETURN
 
 	#ignore local net
-	for net in $BYPASS
-	do
-		iptables -t nat -A smartproxy -p tcp -d $net -j RETURN
-	done
+	iptables -t nat -A smartproxy -p tcp -d 0.0.0.0/8 -j RETURN
+	iptables -t nat -A smartproxy -p tcp -d 10.0.0.0/8 -j RETURN
+	iptables -t nat -A smartproxy -p tcp -d 127.0.0.0/8 -j RETURN
+	iptables -t nat -A smartproxy -p tcp -d 169.254.0.0/16 -j RETURN
+	iptables -t nat -A smartproxy -p tcp -d 172.16.0.0/12 -j RETURN
+	iptables -t nat -A smartproxy -p tcp -d 192.168.0.0/16 -j RETURN
+	iptables -t nat -A smartproxy -p tcp -d 224.0.0.0/4 -j RETURN
+	iptables -t nat -A smartproxy -p tcp -d 240.0.0.0/4 -j RETURN
 
 	ipset create sp-ignore-src hash:net
 	awk '{printf("add sp-ignore-src %s\n", $1)}' $IGNORE_SRC | ipset restore
@@ -60,6 +68,11 @@ add_rule(){
 
 destroy_rule(){
 	echo 'Destory rules'
+	iptables -t mangle -D PREROUTING -p udp --sport 53 -j cleardns
+	iptables -t mangle -D INPUT -p udp --sport 53 -j cleardns
+	iptables -t mangle -F cleardns
+	iptables -t mangle -X cleardns
+
 	iptables -t nat -D prerouting_rule -p tcp -j smartproxy 
 	iptables -t nat -D OUTPUT -p tcp -j smartproxy
 	iptables -t nat -F smartproxy
