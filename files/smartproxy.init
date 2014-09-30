@@ -1,9 +1,8 @@
 #!/bin/sh /etc/rc.common
 
 START=95
-SERVICE_USE_PID=1
-SERVICE_WRITE_PID=1
-SERVICE_DAEMONIZE=1
+USE_PROCD=1
+#PROCD_DEBUG=1
 
 REDIR_PORT='12345'
 CONFIGFILE='/etc/smartproxy/shadowsocks.json'
@@ -13,8 +12,13 @@ IGNORE_DST='/etc/smartproxy/ignore-dst'
 BADIPLIST='/etc/smartproxy/badip'
 
 start_proxy(){
-	echo 'Start ss-redir'
-	service_start /usr/bin/ss-redir -c $CONFIGFILE -l $REDIR_PORT 
+	procd_open_instance
+	procd_set_param command /usr/bin/ss-redir
+	procd_append_param command -c "${CONFIGFILE}"
+	procd_append_param command -l "${REDIR_PORT}"
+	procd_set_param respawn
+	procd_append_param limits core="unlimited"
+	procd_close_instance
 }
 
 stop_proxy(){
@@ -81,17 +85,12 @@ destroy_rule(){
 	ipset destroy sp-ignore-dst
 }
 
-start() {
+start_service() {
 	start_proxy
 	add_rule
 }
 
-stop () {
-	stop_proxy
+stop_service() {
 	destroy_rule
 }
 
-restart() {
-	stop
-	start
-}

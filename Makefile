@@ -10,7 +10,7 @@ define Package/smartproxy
     SECTION:=proxy
     CATEGORY:=Network
     TITLE:=Smart proxy non china traffic
-    DEPENDS:=+shadowsocks-libev +iptables-mod-geoip +kmod-ipt-ipset
+    DEPENDS:=+shadowsocks-libev +iptables-mod-geoip +kmod-ipt-ipset +iptables-mod-u32 +kmod-ipt-u32
 endef
 
 define Package/smartproxy/conffiles
